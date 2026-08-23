@@ -1,0 +1,63 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "optparse"
+require_relative "../lib/ruby_benchmark"
+
+
+def duration(text)
+  value = Float(text[/\A[0-9.]+/])
+  return value / 1000.0 if text.end_with?("ms")
+  return value * 60.0 if text.end_with?("m")
+  value
+end
+
+
+config = RubyBenchmark::Config.new
+self_test = false
+list = false
+
+OptionParser.new do |options|
+  options.banner = "Usage: bin/bench [options]"
+  options.on("--scenario NAME") { |value| config.scenario = value }
+  options.on("--threads N", Integer) { |value| config.threads = value }
+  options.on("--warmup DURATION") { |value| config.warmup = duration(value) }
+  options.on("--measure DURATION") { |value| config.measure = duration(value) }
+  options.on("--sample-interval DURATION") { |value| config.sample_interval = duration(value) }
+  options.on("--profile NAME") { |value| config.apply_profile(value) }
+  options.on("--payload-bytes N", Integer) { |value| config.payload_bytes = value }
+  options.on("--payload-pool N", Integer) { |value| config.payload_pool = value }
+  options.on("--alloc-bytes N", Integer) { |value| config.alloc_bytes = value }
+  options.on("--cache-size N", Integer) { |value| config.cache_size = value }
+  options.on("--seed N", Integer) { |value| config.seed = value }
+  options.on("--out PATH") { |value| config.output_path = value }
+  options.on("--no-timeseries") { config.timeseries = false }
+  options.on("--list-scenarios") { list = true }
+  options.on("--self-test") { self_test = true }
+end.parse!
+
+if list
+  puts RubyBenchmark::SCENARIOS
+  exit
+end
+
+if self_test
+  RubyBenchmark::SCENARIOS.each do |scenario|
+    test_config = RubyBenchmark::Config.new
+    test_config.scenario = scenario
+    test_config.payload_bytes = 256
+    test_config.payload_pool = 8
+    state = RubyBenchmark::Workload.new(test_config).state(0)
+    raise "#{scenario} returned no value" if state.call(1).nil?
+  end
+  puts "OK"
+  exit
+end
+
+result = RubyBenchmark::Runner.new(config).run
+json = JSON.pretty_generate(result) + "\n"
+if config.output_path
+  File.write(config.output_path, json)
+else
+  puts json
+end

@@ -1,0 +1,6 @@
+require_relative "ruby_benchmark/config"
+require_relative "ruby_benchmark/histogram"
+require_relative "ruby_benchmark/payloads"
+require_relative "ruby_benchmark/workloads"
+require_relative "ruby_benchmark/sampler"
+require_relative "ruby_benchmark/runner"
